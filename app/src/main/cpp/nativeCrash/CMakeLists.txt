@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.4.1)
-project(.)
+project(nativeCrash)
 
 # 支持的ABI
 set(CMAKE_ANDROID_ARCH_ABI armeabi-v7a arm64-v8a x86 x86_64)

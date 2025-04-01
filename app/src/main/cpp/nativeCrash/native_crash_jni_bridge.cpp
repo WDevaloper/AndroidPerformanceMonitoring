@@ -1,41 +1,91 @@
 #include <jni.h>
+#include <android/log.h>
 #include "native_crash_handler.h"
 
 JavaVM *_vm;
 
-//在jni中使用的Java_com_hellondk_NDKTool_test来进行与java方法的匹配，这种方式我们称之为静态注册。
-extern "C" JNIEXPORT void JNICALL
-Java_com_github_crash_crash_cnative_NativeCrash_initCrashHandler(
-        JNIEnv *env,
-        jclass clazz,
-        jstring logPath,
-        jstring version) {
-
-    const char *path = env->GetStringUTFChars(logPath, nullptr);
-    const char *ver = env->GetStringUTFChars(version, nullptr);
-
-    CrashHandler::Init(path);
-    CrashHandler::SetVersionInfo(ver);
-
-    env->ReleaseStringUTFChars(logPath, path);
-    env->ReleaseStringUTFChars(version, ver);
-}
-
+// 修改回调设置逻辑，保存全局引用
+struct CallbackContext {
+    JavaVM *vm;
+    jobject callback; // 全局引用
+};
 
 //在jni中使用的Java_com_hellondk_NDKTool_test来进行与java方法的匹配，这种方式我们称之为静态注册。
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_github_crash_crash_cnative_NativeCrash_setCrashLogPathNative(JNIEnv *env, jclass clazz,
-                                                                      jstring path) {
-    CrashHandler::SetLogDir(env->GetStringUTFChars(path, nullptr));
+Java_com_github_crash_crash_cnative_NativeCrash_initCrashHandler(JNIEnv *env,
+                                                                 jclass clazz,
+                                                                 jstring log_dir,
+                                                                 jstring version,
+                                                                 jobject callback) {
+
+    const char *path = env->GetStringUTFChars(log_dir, nullptr);
+    const char *ver = env->GetStringUTFChars(version, nullptr);
+    CrashHandler::Init(path);
+    CrashHandler::SetVersion(ver);
+
+
+
+    // 设置 Crash 回调
+    CrashHandler::SetCrashCallback([callback, env](const std::string &logPath) {
+        jclass callbackClass = env->GetObjectClass(callback);
+        jmethodID onCrashMethod = env->GetMethodID(callbackClass, "onCrash",
+                                                   "(Ljava/lang/String;)V");
+        jstring logPathStr = env->NewStringUTF(logPath.c_str());
+        if (logPathStr != nullptr) {
+            env->CallVoidMethod(callback, onCrashMethod, logPathStr);
+            env->DeleteLocalRef(logPathStr);
+            env->DeleteLocalRef(callbackClass);
+        } else {
+            __android_log_write(ANDROID_LOG_ERROR, "NativeCrash",
+                                "Failed to create logPath string in callback");
+        }
+    });
+
+    env->ReleaseStringUTFChars(log_dir, path);
+    env->ReleaseStringUTFChars(version, ver);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_github_crash_crash_cnative_NativeCrash_SetVersion(JNIEnv *env, jclass clazz,
+                                                           jstring version) {
+    CrashHandler::SetVersion(env->GetStringUTFChars(version, nullptr));
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_github_crash_crash_cnative_NativeCrash_setCallback(JNIEnv *env, jclass clazz,
+                                                            jobject callback) {
+
+    CrashHandler::SetCrashCallback(
+            [context = new CallbackContext{_vm, env->NewGlobalRef(callback)}](
+                    const std::string &logPath) {
+                JNIEnv *env;
+                context->vm->AttachCurrentThread(&env, nullptr);
+
+                jclass callbackClass = env->GetObjectClass(context->callback);
+                jmethodID onCrashMethod = env->GetMethodID(callbackClass, "onCrash",
+                                                           "(Ljava/lang/String;)V");
+                jstring logPathStr = env->NewStringUTF(logPath.c_str());
+                if (logPathStr) {
+                    env->CallVoidMethod(context->callback, onCrashMethod, logPathStr);
+                    env->DeleteLocalRef(logPathStr);
+                }
+                env->DeleteLocalRef(callbackClass);
+                context->vm->DetachCurrentThread();
+
+                // 清理全局引用（根据实际生命周期管理）
+                env->DeleteGlobalRef(context->callback);
+                delete context;
+            });
 }
 
 // ---------动态注册-----------
 extern "C"
 JNIEXPORT void JNICALL
 testCrash(JNIEnv *env, jclass clazz) {
-    volatile int *ptr = nullptr; // 触发SIGSEGV
-    *ptr = 42;
+    //    __builtin_trap();
+    abort();
 }
 
 //需要动态注册的native方法数组

@@ -11,11 +11,25 @@ public class NativeCrash {
     }
 
 
-    public static void initCrash(Context context, String version) {
-        initCrashHandler(getCrashLogPath(context), version);
+    public static void initCrash(Context context, String version, NativeCrashCallback callback) {
+        initCrashHandler(getCrashLogPath(context), version, callback);
     }
 
-    private static native void initCrashHandler(String logDir, String version);
+    private static native void initCrashHandler(String logDir, String version, NativeCrashCallback callback);
+
+
+    public static void setVersion(String version) {
+        SetVersion(version);
+    }
+
+    private static native void SetVersion(String version);
+
+    public static void setCrashCallback(NativeCrashCallback callback) {
+        setCallback(callback);
+    }
+
+    private static native void setCallback(NativeCrashCallback callback);
+
 
     public static void testNativeCrash() {
         testCrash();
@@ -29,14 +43,10 @@ public class NativeCrash {
      * @return logPath
      */
     public static String getCrashLogPath(Context context) {
-        File crashDir = new File(context.getFilesDir().getAbsolutePath(), "crashes");
-        if (!crashDir.exists() && !crashDir.mkdirs()) return "";
+        File crashDir = new File(context.getFilesDir(), "crashes");
+        if (!crashDir.exists() && !crashDir.mkdirs()) {
+            throw new RuntimeException("Failed to create crash directory");
+        }
         return crashDir.getAbsolutePath();
     }
-
-    public static void setCrashLogDir(String path) {
-        setCrashLogPathNative(path);
-    }
-
-    private static native void setCrashLogPathNative(String path);
 }
