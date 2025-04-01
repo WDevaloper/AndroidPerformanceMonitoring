@@ -19,7 +19,9 @@ private:
 
     static void CaptureStackTrace(void *context);
 
+
     static void WriteCrashLog(int sig, const siginfo_t *info, void *context);
+    static void WriteCrashLogMMAP(int sig, const siginfo_t *info, void *context);
 
     static std::string m_logPath;
     static std::string m_appVersion;

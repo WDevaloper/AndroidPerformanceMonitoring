@@ -114,9 +114,10 @@ void CrashHandler::WriteCrashLog(int sig, const siginfo_t *info, void *context) 
                        getpid(),
                        static_cast<long>(syscall(SYS_gettid)),
                        static_cast<long>(time(nullptr)));
-
     write(fd, buf, len);
 
+
+    //寄存器信息
     ucontext_t *ucontext = static_cast<ucontext_t *>(context);
     len = snprintf(buf, sizeof(buf), "Registers:\n");
     write(fd, buf, len);
@@ -174,6 +175,7 @@ void CrashHandler::WriteCrashLog(int sig, const siginfo_t *info, void *context) 
     len = snprintf(buf, sizeof(buf), "Unsupported architecture\n");
 #endif
 
+    //写入寄存器信息
     write(fd, buf, len);
 
     // 捕获并写入堆栈
@@ -190,6 +192,8 @@ void CrashHandler::WriteCrashLog(int sig, const siginfo_t *info, void *context) 
         }
         close(mapsFd);
     }
+    // 写入结束标记
+    write(fd, "\n*** End of Crash Report ***\n", 27);
 
     close(fd);
 }
@@ -215,19 +219,22 @@ void CrashHandler::CaptureStackTrace(void *context) {
             char line[256];
             int len = snprintf(line, sizeof(line),
                                "#%02zu pc %08"
-            PRIxPTR
-            " %s (%s+%#"
-            PRIxPTR
-            ")\n",
-                    i,
-                    reinterpret_cast<uintptr_t>(stack[i]) - base,
-                    info.dli_fname,
-                    name,
-                    offset);
+                               PRIxPTR
+                               " %s (%s+%#"
+                               PRIxPTR
+                               ")\n",
+                               i,
+                               reinterpret_cast<uintptr_t>(stack[i]) - base,
+                               info.dli_fname,
+                               name,
+                               offset);
             write(fd, line, len);
         }
     }
     close(fd);
+}
+
+void CrashHandler::WriteCrashLogMMAP(int sig, const siginfo_t *info, void *context) {
 }
 
 
