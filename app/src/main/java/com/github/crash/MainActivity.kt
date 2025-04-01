@@ -1,17 +1,13 @@
 package com.github.crash
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.github.crash.crash.native_crash.CrashHandler
+import com.github.crash.crash.cnative.NativeCrash
 
 class MainActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
@@ -29,7 +25,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.text).setOnClickListener {
 //            startActivity(Intent(this, MainActivity2::class.java))
 
-            CrashHandler.testCrash()
+            NativeCrash.testNativeCrash()
         }
     }
 }

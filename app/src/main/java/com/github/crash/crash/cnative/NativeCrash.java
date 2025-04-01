@@ -1,11 +1,11 @@
-package com.github.crash.crash.native_crash;
+package com.github.crash.crash.cnative;
 
 
 import android.content.Context;
 
 import java.io.File;
 
-public class CrashHandler {
+public class NativeCrash {
     static {
         System.loadLibrary("nativeCrash");
     }
@@ -17,7 +17,12 @@ public class CrashHandler {
 
     private static native void initCrashHandler(String logDir, String version);
 
-    public static native void testCrash();
+    public static void testNativeCrash() {
+        testCrash();
+    }
+
+    private static native void testCrash();
+
 
     /**
      * 获取崩溃日志
@@ -28,4 +33,10 @@ public class CrashHandler {
         if (!crashDir.exists() && !crashDir.mkdirs()) return "";
         return crashDir.getAbsolutePath();
     }
+
+    public static void setCrashLogDir(String path) {
+        setCrashLogPathNative(path);
+    }
+
+    private static native void setCrashLogPathNative(String path);
 }

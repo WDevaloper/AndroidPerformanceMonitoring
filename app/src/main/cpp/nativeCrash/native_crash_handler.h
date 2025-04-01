@@ -10,6 +10,8 @@ public:
 
     static void SetVersionInfo(const std::string &version);
 
+    static void SetLogDir(const std::string &logPath);
+
 private:
     static void InstallSignalHandlers();
 

@@ -1,4 +1,4 @@
-#include "crash_handler.h"
+#include "native_crash_handler.h"
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <android/log.h>
@@ -214,14 +214,23 @@ void CrashHandler::CaptureStackTrace(void *context) {
 
             char line[256];
             int len = snprintf(line, sizeof(line),
-                               "#%02zu pc %08" PRIxPTR " %s (%s+%#" PRIxPTR ")\n",
-                               i,
-                               reinterpret_cast<uintptr_t>(stack[i]) - base,
-                               info.dli_fname,
-                               name,
-                               offset);
+                               "#%02zu pc %08"
+            PRIxPTR
+            " %s (%s+%#"
+            PRIxPTR
+            ")\n",
+                    i,
+                    reinterpret_cast<uintptr_t>(stack[i]) - base,
+                    info.dli_fname,
+                    name,
+                    offset);
             write(fd, line, len);
         }
     }
     close(fd);
+}
+
+
+void CrashHandler::SetLogDir(const std::string &logPath) {
+    m_logPath = logPath;
 }

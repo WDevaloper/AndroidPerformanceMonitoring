@@ -2,8 +2,7 @@ package com.github.crash
 
 import android.app.Application
 import com.github.crash.crash.CrashLogger
-import com.github.crash.crash.native_crash.CrashHandler
-import java.io.File
+import com.github.crash.crash.cnative.NativeCrash
 
 
 class App : Application() {
@@ -13,6 +12,6 @@ class App : Application() {
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
             .initialize(this)
-        CrashHandler.initCrash(this, "1.0.0")
+        NativeCrash.initCrash(this, "1.0.0")
     }
 }
