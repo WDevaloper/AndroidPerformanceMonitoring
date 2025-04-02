@@ -15,17 +15,6 @@ class App : Application() {
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
             .initialize(this)
-        NativeCrash.initCrash(
-            this,
-            "1.0.0"
-        ) { crashLogPath ->
-            Log.e("TAG", "crashLogPath: $crashLogPath")
-            val logPath = NativeCrash.getCrashLogPath(this)
-            File(logPath).listFiles()?.forEach {
-                Log.e("TAG", "crashLogPath: ${it.absolutePath}")
-                it.delete()
-            }
-            Thread.sleep(5000)
-        }
+        NativeCrash.initCrash(this, "1.0.0")
     }
 }

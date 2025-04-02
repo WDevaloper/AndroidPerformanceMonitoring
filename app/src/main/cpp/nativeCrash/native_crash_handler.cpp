@@ -12,38 +12,28 @@
 #include <atomic>
 #include <utility>
 #include <sys/time.h>
+#include <sys/wait.h>
 
 // 架构相关头文件
 #if defined(__i386__) || defined(__x86_64__)
 
 #include <sys/ucontext.h>  // x86架构需要此头文件
 #include <jni.h>
-#include <sys/wait.h>
 
 #else
 #include <ucontext.h>      // ARM架构使用标准头文件
 #endif
 
-// 异步安全日志宏
-#define ASYNC_LOG(fd, msg) do { \
-    const char* _m = msg; \
-    write(fd, _m, strlen(_m)); \
-} while(0)
-
 std::string CrashHandler::m_logDir;
 std::string CrashHandler::m_version;
-CrashHandler::CrashCallback CrashHandler::m_callback;
 std::atomic_bool CrashHandler::m_crashHandling(false);
-
-void CrashHandler::SetCrashCallback(CrashCallback callback) {
-    m_callback = std::move(callback);
-}
 
 void CrashHandler::SetVersion(const std::string &version) {
     m_version = version;
 }
 
 void CrashHandler::Init(const std::string &logDir) {
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "Init,logDir: %s", logDir.c_str());
     m_logDir = logDir;
     InstallSignalHandlers();
 
@@ -62,8 +52,9 @@ void CrashHandler::Init(const std::string &logDir) {
     }
 }
 
-void CrashHandler::InstallSignalHandlers() {
 
+void CrashHandler::InstallSignalHandlers() {
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "InstallSignalHandlers");
     struct sigaction sa{};      // 清空结构体
     sa.sa_sigaction = SignalHandler;  // 指定处理函数
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_RESETHAND;  // 关键标志：
@@ -77,18 +68,21 @@ void CrashHandler::InstallSignalHandlers() {
     for (int sig: signals) {
         if (sigaction(sig, &sa, nullptr) == -1) {  // 注册信号处理
             // 实际项目应记录错误日志
+            __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "sigaction failed: %s",
+                                strerror(errno));
         }
     }
 }
 
 void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "SignalHandler");
     // 原子锁防止重复进入
     if (m_crashHandling.exchange(true)) {
         _exit(1);  // 立即终止防止递归崩溃
     }
 
-    // 生成日志路径（示例：/data/crash/20230315-143022.crash）
     const std::string logPath = GenerateCrashLogPath();
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "SignalHandler:%s", logPath.c_str());
 
     // 异步安全方式打开文件（不使用fopen）
     int fd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0640);
@@ -108,24 +102,53 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
 
     close(fd);  // 必须关闭文件描述符
 
-    // Fork子进程处理回调
-    pid_t pid = fork();
-    if (pid == 0) {
-        // 子进程中调用回调
-        m_callback(logPath);
-        _exit(0);  // 使用_exit避免调用atexit
-    } else if (pid > 0) {
-        // 父进程等待子进程完成（避免僵尸进程）
-        waitpid(pid, nullptr, 0);
-    }
+    ChildProcess();
 
     // 恢复默认信号处理并重新触发信号（确保进程终止）
     signal(sig, SIG_DFL);
     kill(getpid(), sig);
 }
 
+// Fork子进程处理回调
+void CrashHandler::ChildProcess() {
+    pid_t pid = fork();
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "pid: %d", pid);
+
+    //子进程逻辑
+    if (pid == 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "子进程逻辑Enter>>>>>>>>>");
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "开发回调");
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "子进程逻辑Exit>>>>>>>>>>>");
+        _exit(0);  // 使用_exit避免调用at exit
+        return;
+    }
+
+    //父进程逻辑
+    if (pid > 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "父进程逻辑>>>>>>>");
+        int status;
+        pid_t result = waitpid(pid, &status, 0);  // 父进程等待子进程完成（避免僵尸进程）
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "父进程逻辑Exit>>>>>>>");
+        if (result == -1) {
+            __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "waitpid failed");
+        } else {
+            if (WIFEXITED(status)) {
+                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash",
+                                    "Child exited with code: %d\n", WEXITSTATUS(status));
+            } else if (WIFSIGNALED(status)) {
+                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash",
+                                    "Child killed by signal: %d\n", WTERMSIG(status));
+            }
+        }
+        return;
+    }
+
+
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "fork failed");
+}
+
 void CrashHandler::DumpRegisters(void *ucontext, int fd) {
-    ucontext_t *ctx = static_cast<ucontext_t *>(ucontext);
+    auto *ctx = static_cast<ucontext_t *>(ucontext);
 
 #if defined(__arm__)
     // ARMv7
@@ -168,7 +191,7 @@ struct BacktraceState {  // 堆栈遍历状态结构体
 
 static _Unwind_Reason_Code UnwindCallback(
         struct _Unwind_Context *ctx, void *arg) {
-    BacktraceState *state = static_cast<BacktraceState *>(arg);
+    auto *state = static_cast<BacktraceState *>(arg);
     void *pc = reinterpret_cast<void *>(_Unwind_GetIP(ctx));  // 获取指令指针
     if (pc && state->current < state->end) {
         *state->current++ = pc;  // 存储有效地址
@@ -217,7 +240,6 @@ void CrashHandler::DumpMemoryMaps(int fd) {
     dprintf(fd, "\n*** End of Crash Report ***\n");
 }
 
-
 std::string CrashHandler::GenerateCrashLogPath() {
     // 生成日志路径（示例：/data/crash/20230315-143022.crash）
 
@@ -229,8 +251,4 @@ std::string CrashHandler::GenerateCrashLogPath() {
         m_logDir.append("/");
     }
     return m_logDir + "/" + "crash-" + timeStr + ".log";
-}
-
-void CrashHandler::TriggerUpload(const std::string &logPath) {
-    m_callback(logPath);
 }

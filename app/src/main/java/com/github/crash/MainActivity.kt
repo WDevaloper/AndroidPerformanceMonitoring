@@ -1,6 +1,7 @@
 package com.github.crash
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.activity.enableEdgeToEdge
@@ -23,9 +24,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<View>(R.id.text).setOnClickListener {
-//            startActivity(Intent(this, MainActivity2::class.java))
-
-            NativeCrash.testNativeCrash()
+            startActivity(Intent(this, CrashMainActivity::class.java))
         }
     }
 }
