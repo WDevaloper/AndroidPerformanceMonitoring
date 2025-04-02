@@ -99,52 +99,14 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
     DumpRegisters(ucontext, fd);    // 寄存器转储
     DumpStackTrace(ucontext, fd);   // 堆栈跟踪
     DumpMemoryMaps(fd);             // 内存映射
-
     close(fd);  // 必须关闭文件描述符
 
-    ChildProcess();
+    usleep(1000);
+    waitpid(getpid(), nullptr, WNOHANG);
 
     // 恢复默认信号处理并重新触发信号（确保进程终止）
     signal(sig, SIG_DFL);
     kill(getpid(), sig);
-}
-
-// Fork子进程处理回调
-void CrashHandler::ChildProcess() {
-    pid_t pid = fork();
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "pid: %d", pid);
-
-    //子进程逻辑
-    if (pid == 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "子进程逻辑Enter>>>>>>>>>");
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "开发回调");
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "子进程逻辑Exit>>>>>>>>>>>");
-        _exit(0);  // 使用_exit避免调用at exit
-        return;
-    }
-
-    //父进程逻辑
-    if (pid > 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "父进程逻辑>>>>>>>");
-        int status;
-        pid_t result = waitpid(pid, &status, 0);  // 父进程等待子进程完成（避免僵尸进程）
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "父进程逻辑Exit>>>>>>>");
-        if (result == -1) {
-            __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "waitpid failed");
-        } else {
-            if (WIFEXITED(status)) {
-                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash",
-                                    "Child exited with code: %d\n", WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash",
-                                    "Child killed by signal: %d\n", WTERMSIG(status));
-            }
-        }
-        return;
-    }
-
-
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "fork failed");
 }
 
 void CrashHandler::DumpRegisters(void *ucontext, int fd) {

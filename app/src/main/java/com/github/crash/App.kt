@@ -16,5 +16,9 @@ class App : Application() {
             .setRetentionDays(3)
             .initialize(this)
         NativeCrash.initCrash(this, "1.0.0")
+        File(NativeCrash.getCrashLogPath(this)).listFiles()?.forEach {
+            Log.d("NativeCrash", it.name)
+            it.delete()
+        }
     }
 }
