@@ -12,11 +12,11 @@ public class NativeCrash {
     }
 
 
-    public static void initCrash(Context context, String version) {
-        initCrashHandler(getCrashLogPath(context), version);
+    public static void initCrash(Context context, String version, NativeCrashCallback callback) {
+        initCrashHandler(getCrashLogPath(context), version, callback);
     }
 
-    private static native void initCrashHandler(String logDir, String version);
+    private static native void initCrashHandler(String logDir, String version, NativeCrashCallback callback);
 
 
     public static void setVersion(String version) {

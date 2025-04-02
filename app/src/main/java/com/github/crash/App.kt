@@ -15,7 +15,8 @@ class App : Application() {
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
             .initialize(this)
-        NativeCrash.initCrash(this, "1.0.0")
+        NativeCrash.initCrash(this, "1.0.0"
+        ) { crashLogPath -> Log.d("NativeCrash", "onCrashReport: $crashLogPath") }
         File(NativeCrash.getCrashLogPath(this)).listFiles()?.forEach {
             Log.d("NativeCrash", it.name)
             it.delete()

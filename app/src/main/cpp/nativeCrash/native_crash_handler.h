@@ -4,14 +4,29 @@
 #include <string>
 #include <atomic>
 #include <functional>  // 用于std::function回调
+#include <jni.h>
+#include <sys/eventfd.h>
+#include <pthread.h>
+
+// 新增全局变量
+static JavaVM *g_vm = nullptr;
+static jobject g_callback = nullptr;
+static pthread_mutex_t g_callbackMutex = PTHREAD_MUTEX_INITIALIZER;
+static int g_eventFd = -1;
+static pthread_t g_callbackThread;
 
 class CrashHandler final {
 public:
     // 初始化方法（线程安全）
-    static void Init(const std::string &logDir);
+    static void Init(JNIEnv* env,const std::string &logDir,jobject callback);
 
     // 设置应用版本信息
     static void SetVersion(const std::string &version);
+
+    // 新增函数声明
+    [[noreturn]] static void *CallbackThread(void *arg);
+
+    static void NotifyJavaCallback(const std::string &crashLogPath);
 
     // 删除拷贝构造函数和赋值运算符（单例模式）
     CrashHandler(const CrashHandler &) = delete;

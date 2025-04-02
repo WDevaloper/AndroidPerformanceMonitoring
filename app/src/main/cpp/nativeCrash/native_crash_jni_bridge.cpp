@@ -10,11 +10,13 @@ JNIEXPORT void JNICALL
 Java_com_github_crash_crash_cnative_NativeCrash_initCrashHandler(JNIEnv *env,
                                                                  jclass clazz,
                                                                  jstring log_dir,
-                                                                 jstring version) {
+                                                                 jstring version,
+                                                                 jobject callback) {
+
 
     const char *path = env->GetStringUTFChars(log_dir, nullptr);
     const char *ver = env->GetStringUTFChars(version, nullptr);
-    CrashHandler::Init(path);
+    CrashHandler::Init(env, path, callback);
     CrashHandler::SetVersion(ver);
     env->ReleaseStringUTFChars(log_dir, path);
     env->ReleaseStringUTFChars(version, ver);
