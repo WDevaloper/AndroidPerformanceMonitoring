@@ -32,6 +32,10 @@ public:
     // 通知Java回调方法
     static void NotifyJavaCallback(const std::string &crashLogPath);
 
+    static int deleteLogFile(const std::string &crashLogFullPath);
+
+    static int removeDirectory(const std::string &crashLogPath);
+
     // 删除拷贝构造函数和赋值运算符（单例模式）
     CrashHandler(const CrashHandler &) = delete;
 

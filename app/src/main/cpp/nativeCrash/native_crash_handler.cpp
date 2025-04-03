@@ -1,3 +1,12 @@
+// 架构相关头文件
+#if defined(__i386__) || defined(__x86_64__)
+
+#include <sys/ucontext.h>  // x86架构需要此头文件
+
+#else
+#include <ucontext.h>      // ARM架构使用标准头文件
+#endif
+
 #include "native_crash_handler.h"
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -13,17 +22,9 @@
 #include <utility>
 #include <sys/time.h>
 #include <sys/wait.h>
-
-
-// 架构相关头文件
-#if defined(__i386__) || defined(__x86_64__)
-
-#include <sys/ucontext.h>  // x86架构需要此头文件
+#include <dirent.h>
 #include <jni.h>
 
-#else
-#include <ucontext.h>      // ARM架构使用标准头文件
-#endif
 
 std::string CrashHandler::m_logDir;
 std::string CrashHandler::m_version;
@@ -33,27 +34,59 @@ void CrashHandler::SetVersion(const std::string &version) {
     m_version = version;
 }
 
+int CrashHandler::deleteLogFile(const std::string &crashLogFullPath) {
+    return unlink(crashLogFullPath.c_str());
+}
+
+int CrashHandler::removeDirectory(const std::string &crashLogPath) {
+    const char *path = crashLogPath.c_str();
+    DIR *dir = opendir(path);
+    if (!dir) {
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法打开目录: %s", path);
+        return -1;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue; // 跳过 . 和 ..
+        }
+
+        char full_path[PATH_MAX];
+        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+        if (entry->d_type == DT_DIR) {
+            // 递归删除子目录
+            if (removeDirectory(full_path) != 0) {
+                closedir(dir);
+                return -1;
+            }
+        } else {
+            // 删除文件
+            if (unlink(full_path) != 0) {
+                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法删除文件: %s",
+                                    full_path);
+                closedir(dir);
+                return -1;
+            }
+        }
+    }
+
+    closedir(dir);
+
+    // 删除空目录
+    if (rmdir(path) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法删除目录: %s", path);
+        return -1;
+    }
+    return 0;
+}
+
 void CrashHandler::Init(JNIEnv *env, const std::string &logDir, jobject callback) {
     __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "Init,logDir: %s", logDir.c_str());
     m_logDir = logDir;
     InstallSignalHandlers();
-
-    stack_t ss{};
-    ss.ss_sp = malloc(SIGSTKSZ);
-    if (!ss.ss_sp) {
-        __android_log_write(ANDROID_LOG_ERROR, "CrashHandler", "Failed to allocate signal stack");
-        return;
-    }
-    ss.ss_size = SIGSTKSZ;
-    ss.ss_flags = 0;
-
-    if (sigaltstack(&ss, nullptr) != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "CrashHandler", "sigaltstack failed: %s",
-                            strerror(errno));
-    }
-
-    // 创建event_fd和回调线程
-    ThreadInit(env, callback);
+    ThreadInit(env, callback);// 创建event_fd和回调线程
 }
 
 void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
@@ -113,16 +146,29 @@ void CrashHandler::InstallSignalHandlers() {
     // SA_SIGINFO：需要siginfo_t信息
     // SA_ONSTACK：使用备用栈
     // SA_RESETHAND：处理一次后恢复默认行为
-
     // 需要捕获的信号列表
     const int signals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL};
-
     for (int sig: signals) {
         if (sigaction(sig, &sa, nullptr) == -1) {  // 注册信号处理
             // 实际项目应记录错误日志
             __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "sigaction failed: %s",
                                 strerror(errno));
         }
+    }
+
+
+    // 备用信号栈
+    stack_t ss{};
+    ss.ss_sp = malloc(SIGSTKSZ);
+    if (!ss.ss_sp) {
+        __android_log_write(ANDROID_LOG_ERROR, "CrashHandler", "Failed to allocate signal stack");
+        return;
+    }
+    ss.ss_size = SIGSTKSZ;
+    ss.ss_flags = 0;
+    if (sigaltstack(&ss, nullptr) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "CrashHandler", "sigaltstack failed: %s",
+                            strerror(errno));
     }
 }
 
@@ -158,8 +204,9 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
 
     NotifyJavaCallback(logPath);// 通知Java回调
 
-    sleep(1);
-    //waitpid(getpid(), nullptr, WNOHANG);// 等待子进程退出
+    // 休眠1毫秒等待文件写入完成
+    struct timespec delay = {0, 1000 * 1000}; // 0秒 + 1000000纳秒 = 1毫秒
+    nanosleep(&delay, nullptr);
 
     // 恢复默认信号处理并重新触发信号（确保进程终止）
     signal(sig, SIG_DFL);

@@ -2,7 +2,6 @@ package com.github.crash.crash.cnative;
 
 
 import android.content.Context;
-import android.util.Log;
 
 import java.io.File;
 
@@ -13,7 +12,7 @@ public class NativeCrash {
 
 
     public static void initCrash(Context context, String version, NativeCrashCallback callback) {
-        initCrashHandler(getCrashLogPath(context), version, callback);
+        initCrashHandler(getCrashLogDirectory(context), version, callback);
     }
 
     private static native void initCrashHandler(String logDir, String version, NativeCrashCallback callback);
@@ -26,12 +25,6 @@ public class NativeCrash {
     private static native void SetVersion(String version);
 
 
-    public static void cleanup() {
-        nativeCrashCleanup();
-    }
-
-    private static native void nativeCrashCleanup();
-
     public static void testNativeCrash() {
         testCrash();
     }
@@ -43,19 +36,17 @@ public class NativeCrash {
      * 获取崩溃日志
      * @return logPath
      */
-    public static String getCrashLogPath(Context context) {
-        File crashDir = new File(context.getFilesDir(), "crashes");
+    public static String getCrashLogDirectory(Context context) {
+        File crashDir = new File(context.getFilesDir(), "crash_logs");
         if (!crashDir.exists() && !crashDir.mkdirs()) {
             throw new RuntimeException("Failed to create crash directory");
         }
         return crashDir.getAbsolutePath();
     }
 
-    public static void onCrashReported(String logPath) {
-        new Thread(() -> {
-            // 仅执行轻量级操作
-            Log.i("NativeCrash", "崩溃日志已生成: " + logPath);
-            // 可在此处上传日志或通知用户
-        }).start();
+    public static int deleteFile(String path) {
+        return deleteCrashLogFile(path);
     }
+
+    private static native int deleteCrashLogFile(String logPath);
 }
