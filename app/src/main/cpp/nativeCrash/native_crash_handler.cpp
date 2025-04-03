@@ -148,7 +148,7 @@ void CrashHandler::InstallSignalHandlers() {
     const int signals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL};
     for (int sig: signals) {
         // 注册信号处理
-        sigaction(sig, &sa, nullptr)
+        sigaction(sig, &sa, nullptr);
     }
 
 
@@ -160,7 +160,7 @@ void CrashHandler::InstallSignalHandlers() {
     }
     ss.ss_size = SIGSTKSZ;
     ss.ss_flags = 0;
-    sigaltstack(&ss, nullptr)；
+    sigaltstack(&ss, nullptr);
 }
 
 void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
