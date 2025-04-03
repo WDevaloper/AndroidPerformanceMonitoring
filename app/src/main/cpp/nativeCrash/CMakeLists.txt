@@ -10,7 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 保留调试符号
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fno-omit-frame-pointer")
 
-add_library(nativeCrash SHARED native_crash_handler.cpp native_crash_jni_bridge.cpp)
+add_library(
+        nativeCrash
+        SHARED
+        native_crash_handler.cpp native_crash_jni_bridge.cpp jni_env_deleter.cpp
+)
 
 find_library(log-lib log)
 

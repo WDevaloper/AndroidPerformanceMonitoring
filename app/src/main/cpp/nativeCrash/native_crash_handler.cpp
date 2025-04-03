@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <jni.h>
+#include "jni_env_deleter.h"
 
 
 std::string CrashHandler::m_logDir;
@@ -107,6 +108,7 @@ void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
 
     // 创建回调线程
     pthread_create(&g_callbackThread, nullptr, CallbackThread, nullptr);
+    pthread_detach(g_callbackThread);
 }
 
 /**
@@ -116,9 +118,9 @@ void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
  * @return
  */
 [[noreturn]] void *CrashHandler::CallbackThread(void *arg) {
-    JNIEnv *env;
-    g_vm->AttachCurrentThread(&env, nullptr);
-
+    //JNI线程中需要attach才可以使用JNIEnv
+    auto env_ptr = attachEnv(g_vm);
+    JNIEnv *env = env_ptr.get();
     uint64_t eventCount;
     while (true) {
         if (read(g_eventFd, &eventCount, sizeof(eventCount)) > 0) {
@@ -131,10 +133,10 @@ void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
                 env->CallVoidMethod(g_callback, method, jPath);
                 env->DeleteLocalRef(jPath);
             }
+            close(g_eventFd);
             pthread_mutex_unlock(&g_callbackMutex);
         }
     }
-    g_vm->DetachCurrentThread();
 }
 
 void CrashHandler::InstallSignalHandlers() {
