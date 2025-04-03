@@ -37,7 +37,7 @@ public class NativeCrash {
      * @return logPath
      */
     public static String getCrashLogDirectory(Context context) {
-        File crashDir = new File(context.getFilesDir(), "crash_logs");
+        File crashDir = new File(context.getFilesDir(), "crash_dumps");
         if (!crashDir.exists() && !crashDir.mkdirs()) {
             throw new RuntimeException("Failed to create crash directory");
         }
