@@ -18,14 +18,18 @@ static pthread_t g_callbackThread;
 class CrashHandler final {
 public:
     // 初始化方法（线程安全）
-    static void Init(JNIEnv* env,const std::string &logDir,jobject callback);
+    static void Init(JNIEnv *env, const std::string &logDir, jobject callback);
 
     // 设置应用版本信息
     static void SetVersion(const std::string &version);
 
-    // 新增函数声明
+    // 线程初始化方法
+    static void ThreadInit(JNIEnv *en, jobject callback);
+
+    // 线程执行函数声明  回调方法（线程安全）
     [[noreturn]] static void *CallbackThread(void *arg);
 
+    // 通知Java回调方法
     static void NotifyJavaCallback(const std::string &crashLogPath);
 
     // 删除拷贝构造函数和赋值运算符（单例模式）

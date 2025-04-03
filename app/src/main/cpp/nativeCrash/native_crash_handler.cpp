@@ -52,24 +52,58 @@ void CrashHandler::Init(JNIEnv *env, const std::string &logDir, jobject callback
                             strerror(errno));
     }
 
+    // 创建event_fd和回调线程
+    ThreadInit(env, callback);
+}
 
-
-
-    // 新增JNI初始化
+void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
+    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "ThreadInit");
     env->GetJavaVM(&g_vm);
-
+    // 线程安全 互斥锁
     pthread_mutex_lock(&g_callbackMutex);
+
     if (g_callback) {
         env->DeleteGlobalRef(g_callback);
     }
     g_callback = env->NewGlobalRef(callback);
+
+    //释放互斥锁
     pthread_mutex_unlock(&g_callbackMutex);
 
-    // 创建eventfd和回调线程
+    // 创建event_fd
     g_eventFd = eventfd(0, EFD_NONBLOCK);
+
+    // 创建回调线程
     pthread_create(&g_callbackThread, nullptr, CallbackThread, nullptr);
 }
 
+/**
+ * 回调线程实现
+ *
+ * @param arg
+ * @return
+ */
+[[noreturn]] void *CrashHandler::CallbackThread(void *arg) {
+    JNIEnv *env;
+    g_vm->AttachCurrentThread(&env, nullptr);
+
+    uint64_t eventCount;
+    while (true) {
+        if (read(g_eventFd, &eventCount, sizeof(eventCount)) > 0) {
+            pthread_mutex_lock(&g_callbackMutex);
+            if (g_callback) {
+                jclass callbackClass = env->GetObjectClass(g_callback);
+                jmethodID method = env->GetMethodID(callbackClass, "onCrashReport",
+                                                    "(Ljava/lang/String;)V");
+                jstring jPath = env->NewStringUTF(m_logDir.c_str());
+                env->CallVoidMethod(g_callback, method, jPath);
+                env->DeleteLocalRef(jPath);
+            }
+            pthread_mutex_unlock(&g_callbackMutex);
+        }
+    }
+    g_vm->DetachCurrentThread();
+}
 
 void CrashHandler::InstallSignalHandlers() {
     __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "InstallSignalHandlers");
@@ -102,10 +136,6 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
     const std::string logPath = GenerateCrashLogPath();
     __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "SignalHandler:%s", logPath.c_str());
 
-
-    NotifyJavaCallback(logPath);  // 通知Java回调
-
-
     // 异步安全方式打开文件（不使用fopen）
     int fd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0640);
     if (fd == -1) return;  // 打开失败直接返回
@@ -123,40 +153,20 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
     DumpMemoryMaps(fd);             // 内存映射
     close(fd);  // 必须关闭文件描述符
 
-    usleep(1000);
-    waitpid(getpid(), nullptr, WNOHANG);
+    // 原子锁释放
+    m_crashHandling.store(false);
+
+    NotifyJavaCallback(logPath);// 通知Java回调
+
+    sleep(1);
+    //waitpid(getpid(), nullptr, WNOHANG);// 等待子进程退出
 
     // 恢复默认信号处理并重新触发信号（确保进程终止）
     signal(sig, SIG_DFL);
     kill(getpid(), sig);
 }
 
-// 新增回调线程实现
-[[noreturn]] void *CrashHandler::CallbackThread(void *arg) {
-    JNIEnv *env;
-    g_vm->AttachCurrentThread(&env, nullptr);
-
-    uint64_t eventCount;
-    while (true) {
-        if (read(g_eventFd, &eventCount, sizeof(eventCount)) > 0) {
-            pthread_mutex_lock(&g_callbackMutex);
-            if (g_callback) {
-                jclass callbackClass = env->GetObjectClass(g_callback);
-                jmethodID method = env->GetMethodID(callbackClass, "onCrashReport",
-                                                    "(Ljava/lang/String;)V");
-
-                jstring jPath = env->NewStringUTF(m_logDir.c_str());
-                env->CallVoidMethod(g_callback, method, jPath);
-                env->DeleteLocalRef(jPath);
-            }
-            pthread_mutex_unlock(&g_callbackMutex);
-        }
-    }
-
-    g_vm->DetachCurrentThread();
-}
-
-// 新增通知函数
+// 通知event_fd函数  线程中read 阻塞
 void CrashHandler::NotifyJavaCallback(const std::string &crashLogPath) {
     uint64_t value = 1;
     write(g_eventFd, &value, sizeof(value));
