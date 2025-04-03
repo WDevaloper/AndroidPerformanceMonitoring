@@ -22,7 +22,7 @@ class App : Application() {
         }
         File(NativeCrash.getCrashLogDirectory(this)).listFiles()?.forEach {
             Log.d("NativeCrash", it.name)
-            //NativeCrash.deleteFile(it.absolutePath)
+           // NativeCrash.deleteFile(it.absolutePath)
         }
     }
 }

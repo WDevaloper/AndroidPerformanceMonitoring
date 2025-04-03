@@ -188,6 +188,7 @@ void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
 
     // 写入基础信息（使用dprintf保证线程安全）
     dprintf(fd, "*** Native Crash Report ***\n");
+    dprintf(fd, "Time: %s\n", GetCurrentTime().c_str());
     dprintf(fd, "App Version: %s\n", m_version.c_str());
     dprintf(fd, "Signal: %d (%s)\n", sig, strsignal(sig));
     dprintf(fd, "Fault Address: %p\n", info->si_addr);
@@ -315,12 +316,17 @@ void CrashHandler::DumpMemoryMaps(int fd) {
 std::string CrashHandler::GenerateCrashLogPath() {
     // 生成日志路径（示例：/data/crash/20230315-143022.crash）
 
+
+    if (m_logDir.back() != '/') {
+        m_logDir.append("/");
+    }
+    return m_logDir + "/" + "crash-" + GetCurrentTime() + ".log";
+}
+
+std::string CrashHandler::GetCurrentTime() {
     time_t now = time(nullptr);
     struct tm *tm = localtime(&now);
     char timeStr[32];
     strftime(timeStr, sizeof(timeStr), "%Y%m%d-%H%M%S", tm);
-    if (m_logDir.back() != '/') {
-        m_logDir.append("/");
-    }
-    return m_logDir + "/" + "crash-" + timeStr + ".log";
+    return timeStr;
 }
