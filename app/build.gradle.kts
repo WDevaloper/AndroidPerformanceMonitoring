@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.Packaging
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -39,6 +41,11 @@ android {
         }
     }
     ndkVersion = "29.0.13113456 rc1"
+
+    // 禁止剥离所有.so文件的符号
+    packaging {
+        jniLibs.keepDebugSymbols.add("**/*.so")
+    }
 }
 
 dependencies {
