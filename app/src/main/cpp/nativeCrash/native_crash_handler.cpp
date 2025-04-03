@@ -83,7 +83,6 @@ int CrashHandler::removeDirectory(const std::string &crashLogPath) {
 }
 
 void CrashHandler::Init(JNIEnv *env, const std::string &logDir, jobject callback) {
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "Init,logDir: %s", logDir.c_str());
     m_logDir = logDir;
     InstallSignalHandlers();
     ThreadInit(env, callback);// 创建event_fd和回调线程
@@ -139,7 +138,6 @@ void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
 }
 
 void CrashHandler::InstallSignalHandlers() {
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "InstallSignalHandlers");
     struct sigaction sa{};      // 清空结构体
     sa.sa_sigaction = SignalHandler;  // 指定处理函数
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_RESETHAND;  // 关键标志：
@@ -149,11 +147,8 @@ void CrashHandler::InstallSignalHandlers() {
     // 需要捕获的信号列表
     const int signals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL};
     for (int sig: signals) {
-        if (sigaction(sig, &sa, nullptr) == -1) {  // 注册信号处理
-            // 实际项目应记录错误日志
-            __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "sigaction failed: %s",
-                                strerror(errno));
-        }
+        // 注册信号处理
+        sigaction(sig, &sa, nullptr)
     }
 
 
@@ -161,27 +156,20 @@ void CrashHandler::InstallSignalHandlers() {
     stack_t ss{};
     ss.ss_sp = malloc(SIGSTKSZ);
     if (!ss.ss_sp) {
-        __android_log_write(ANDROID_LOG_ERROR, "CrashHandler", "Failed to allocate signal stack");
         return;
     }
     ss.ss_size = SIGSTKSZ;
     ss.ss_flags = 0;
-    if (sigaltstack(&ss, nullptr) != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "CrashHandler", "sigaltstack failed: %s",
-                            strerror(errno));
-    }
+    sigaltstack(&ss, nullptr)；
 }
 
 void CrashHandler::SignalHandler(int sig, siginfo_t *info, void *ucontext) {
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "SignalHandler");
     // 原子锁防止重复进入
     if (m_crashHandling.exchange(true)) {
         _exit(1);  // 立即终止防止递归崩溃
     }
 
     const std::string logPath = GenerateCrashLogPath();
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "SignalHandler:%s", logPath.c_str());
-
     // 异步安全方式打开文件（不使用fopen）
     int fd = open(logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0640);
     if (fd == -1) return;  // 打开失败直接返回
