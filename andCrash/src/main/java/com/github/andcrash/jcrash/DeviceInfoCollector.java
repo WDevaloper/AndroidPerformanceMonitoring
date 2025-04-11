@@ -1,4 +1,4 @@
-package com.github.crash.crash;
+package com.github.andcrash.jcrash;
 
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -20,7 +20,6 @@ import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.function.Consumer;
 
 public class DeviceInfoCollector {
     public String buildLogContent(Context context, Throwable ex, Thread thread) {

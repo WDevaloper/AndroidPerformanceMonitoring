@@ -2,8 +2,8 @@ package com.github.crash
 
 import android.app.Application
 import android.util.Log
-import com.github.crash.crash.CrashLogger
-import com.github.crash.crash.cnative.NativeCrash
+import com.github.andcrash.jcrash.CrashLogger
+import com.github.andcrash.nativecrash.NativeCrash
 import java.io.File
 
 
@@ -14,6 +14,8 @@ class App : Application() {
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
             .initialize(this)
+
+
         NativeCrash.initCrash(this, "1.0.0") { crashLogPath ->
             Log.d(
                 "NativeCrash",
@@ -24,5 +26,11 @@ class App : Application() {
             Log.d("NativeCrash", it.name)
             NativeCrash.deleteFile(it.absolutePath)
         }
+
+        val andAPM = AndAPM()
+        andAPM.init()
+        andAPM.start()
+        andAPM.stop()
+        andAPM.destroy()
     }
 }

@@ -217,7 +217,7 @@ void CrashHandler::DumpRegisters(void *ucontext, int fd) {
     // ARMv7
     dprintf(fd, "ARM Registers:\n");
     for (int i = 0; i < 16; ++i) {
-        dprintf(fd, "R%-2d: 0x%08x\n", i, ctx->uc_mcontext.arm_r[i]);
+        dprintf(fd, "R%-2d: 0x%08x\n", i, ctx->uc_mcontextarm_r[i]);
     }
     dprintf(fd, "CPSR: 0x%08x\n", ctx->uc_mcontext.arm_cpsr);
 #elif defined(__aarch64__)

@@ -1,4 +1,4 @@
-package com.github.crash.crash.cnative;
+package com.github.andcrash.nativecrash;
 
 
 import android.content.Context;

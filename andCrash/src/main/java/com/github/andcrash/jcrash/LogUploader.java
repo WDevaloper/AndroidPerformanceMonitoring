@@ -1,4 +1,4 @@
-package com.github.crash.crash;
+package com.github.andcrash.jcrash;
 
 import java.io.File;
 

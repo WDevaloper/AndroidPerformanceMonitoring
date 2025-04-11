@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AndroidPerformanceMonitoring"
 include(":app")
+include(":andCrash")

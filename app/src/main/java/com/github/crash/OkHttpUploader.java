@@ -1,7 +1,8 @@
 package com.github.crash;
 
-import com.github.crash.crash.LogUploader;
-import com.github.crash.crash.UploadCallback;
+
+import com.github.andcrash.jcrash.LogUploader;
+import com.github.andcrash.jcrash.UploadCallback;
 
 import java.io.File;
 

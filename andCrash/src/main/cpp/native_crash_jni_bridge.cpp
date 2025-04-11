@@ -4,7 +4,8 @@
 
 JavaVM *_vm;
 //需要动态注册native方法的 Java类名   当前native_crash_jni_bridge.cpp是所有JNI的代理类
-static const char *className = "com/github/crash/crash/cnative/NativeCrash";
+static const char *className = "com/github/andcrash/nativecrash/NativeCrash";
+static const char *callbackSignature = "(Ljava/lang/String;Ljava/lang/String;Lcom/github/andcrash/nativecrash/NativeCrashCallback;)V";
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -47,20 +48,10 @@ DeleteCrashLogFile(JNIEnv *env, jclass clazz,
 }
 
 //需要动态注册的native方法数组
-static const JNINativeMethod methods[] = {{"testCrash", "()V", (void *) testCrash},
-                                          {"initCrashHandler",
-                                                        "(Ljava/lang/String;Ljava/lang/String;Lcom/github/crash/crash/cnative/NativeCrashCallback;)V",
-                                                               (void *) InitCrashHandler},
-                                          {
-                                           "SetVersion",
-                                                        "(Ljava/lang/String;)V",
-                                                               (void *) SetVersion
-                                          },
-                                          {
-                                           "deleteCrashLogFile",
-                                                        "(Ljava/lang/String;)I",
-                                                               (void *) DeleteCrashLogFile
-                                          }
+static const JNINativeMethod methods[] = {{"testCrash",          "()V",                   (void *) testCrash},
+                                          {"initCrashHandler",   callbackSignature,       (void *) InitCrashHandler},
+                                          {"SetVersion",         "(Ljava/lang/String;)V", (void *) SetVersion},
+                                          {"deleteCrashLogFile", "(Ljava/lang/String;)I", (void *) DeleteCrashLogFile}
 
 };
 
