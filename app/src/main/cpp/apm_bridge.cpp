@@ -23,7 +23,8 @@ stop(JNIEnv *env, jobject thiz, jlong ptr) {
 JNIEXPORT void JNICALL
 destroy(JNIEnv *env, jobject thiz, jlong ptr) {
     auto *apm = (apm::AndApm *) ptr;
-    apm->destroy();
+    long cppPtr = static_cast<long>(ptr);
+    apm->destroy(cppPtr);
 }
 
 static const JNINativeMethod methods[] = {{"nativeStart",   "(J)V", (void *) start},

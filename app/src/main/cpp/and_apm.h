@@ -16,7 +16,7 @@ namespace apm {
 
         void stop();
 
-        void destroy();
+        void destroy(long ptr);
     };
 
 } // apm

@@ -4,20 +4,21 @@
 
 namespace apm {
     long AndApm::init() {
-        auto *apmPrt = new apm::AndApm();
-        return (long) apmPrt;
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "init");
+        auto *apmPtr = new AndApm();
+        return reinterpret_cast<long>(apmPtr);
     }
 
     void AndApm::start() {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "start");
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "start");
     }
 
     void AndApm::stop() {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "stop");
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "stop");
     }
 
-    void AndApm::destroy() {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "destroy");
-        delete (this);
+    void AndApm::destroy(long ptr) {
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "destroy");
+        delete reinterpret_cast<AndApm *>(ptr);
     }
 }
