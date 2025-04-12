@@ -10,21 +10,17 @@ init(JNIEnv *env, jclass thiz) {
 
 JNIEXPORT void JNICALL
 start(JNIEnv *env, jobject thiz, jlong ptr) {
-    auto *apm = (apm::AndApm *) ptr;
-    apm->start();
+    reinterpret_cast<apm::AndApm *>(ptr)->start();
 }
 
 JNIEXPORT void JNICALL
 stop(JNIEnv *env, jobject thiz, jlong ptr) {
-    auto *apm = (apm::AndApm *) ptr;
-    apm->stop();
+    reinterpret_cast<apm::AndApm *>(ptr)->stop();
 }
 
 JNIEXPORT void JNICALL
 destroy(JNIEnv *env, jobject thiz, jlong ptr) {
-    auto *apm = (apm::AndApm *) ptr;
-    long cppPtr = static_cast<long>(ptr);
-    apm->destroy(cppPtr);
+    reinterpret_cast<apm::AndApm *>(ptr)->destroy(static_cast<long>(ptr));
 }
 
 static const JNINativeMethod methods[] = {{"nativeStart",   "(J)V", (void *) start},
