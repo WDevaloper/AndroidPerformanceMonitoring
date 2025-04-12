@@ -2,6 +2,7 @@ package com.github.andcrash.nativecrash;
 
 
 import android.content.Context;
+import android.text.TextUtils;
 
 import java.io.File;
 
@@ -11,8 +12,19 @@ public class NativeCrash {
     }
 
 
-    public static void initCrash(Context context, String version, NativeCrashCallback callback) {
+    public static void initCrash(Context context,
+                                 String version,
+                                 NativeCrashCallback callback) {
         initCrashHandler(getCrashLogDirectory(context), version, callback);
+        File crashLogDirectory = new File(getCrashLogDirectory(context));
+        if (!crashLogDirectory.exists()) {
+            return;
+        }
+        File[] files = crashLogDirectory.listFiles();
+        if (files == null || files.length == 0) {
+            return;
+        }
+        callback.onCrashUpload(files);
     }
 
     private static native void initCrashHandler(String logDir, String version, NativeCrashCallback callback);

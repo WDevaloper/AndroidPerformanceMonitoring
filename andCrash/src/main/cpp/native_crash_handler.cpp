@@ -43,7 +43,7 @@ int CrashHandler::removeDirectory(const std::string &crashLogPath) {
     const char *path = crashLogPath.c_str();
     DIR *dir = opendir(path);
     if (!dir) {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法打开目录: %s", path);
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "无法打开目录: %s", path);
         return -1;
     }
 
@@ -65,7 +65,7 @@ int CrashHandler::removeDirectory(const std::string &crashLogPath) {
         } else {
             // 删除文件
             if (unlink(full_path) != 0) {
-                __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法删除文件: %s",
+                __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "无法删除文件: %s",
                                     full_path);
                 closedir(dir);
                 return -1;
@@ -77,7 +77,7 @@ int CrashHandler::removeDirectory(const std::string &crashLogPath) {
 
     // 删除空目录
     if (rmdir(path) != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "无法删除目录: %s", path);
+        __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "无法删除目录: %s", path);
         return -1;
     }
     return 0;
@@ -89,8 +89,12 @@ void CrashHandler::Init(JNIEnv *env, const std::string &logDir, jobject callback
     ThreadInit(env, callback);// 创建event_fd和回调线程
 }
 
+void CrashHandler::SetLogDir(const std::string &logDir) {
+    m_logDir = logDir;
+}
+
 void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
-    __android_log_print(ANDROID_LOG_ERROR, "NativeCrash", "ThreadInit");
+    __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "ThreadInit");
     env->GetJavaVM(&g_vm);
     // 线程安全 互斥锁
     pthread_mutex_lock(&g_callbackMutex);

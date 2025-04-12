@@ -2,7 +2,6 @@
 #include <android/log.h>
 #include "native_crash_handler.h"
 
-JavaVM *_vm;
 //需要动态注册native方法的 Java类名   当前native_crash_jni_bridge.cpp是所有JNI的代理类
 static const char *className = "com/github/andcrash/nativecrash/NativeCrash";
 static const char *callbackSignature = "(Ljava/lang/String;Ljava/lang/String;Lcom/github/andcrash/nativecrash/NativeCrashCallback;)V";
@@ -25,6 +24,7 @@ InitCrashHandler(JNIEnv *env,
     const char *ver = env->GetStringUTFChars(version, nullptr);
     CrashHandler::Init(env, path, callback);
     CrashHandler::SetVersion(ver);
+    CrashHandler::SetLogDir(path);
     env->ReleaseStringUTFChars(log_dir, path);
     env->ReleaseStringUTFChars(version, ver);
 }
@@ -58,8 +58,6 @@ static const JNINativeMethod methods[] = {{"testCrash",          "()V",         
 
 //调用System.loadLibrary()函数时， 内部就会去查找so中的 JNI_OnLoad 函数，如果存在此函数则调用。
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-    _vm = vm;
-
     //获得JNIEnv（线程相关的）
     JNIEnv *env = JNI_OK;
     int r = vm->GetEnv((void **) &env, JNI_VERSION_1_6);

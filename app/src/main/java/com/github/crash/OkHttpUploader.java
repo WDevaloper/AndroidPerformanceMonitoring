@@ -1,6 +1,8 @@
 package com.github.crash;
 
 
+import android.util.Log;
+
 import com.github.andcrash.jcrash.LogUploader;
 import com.github.andcrash.jcrash.UploadCallback;
 
@@ -15,7 +17,8 @@ public class OkHttpUploader implements LogUploader {
 
     @Override
     public void upload(File logFile, UploadCallback callback) {
-//        callback.onFailure(logFile, new Exception("Not implemented"));
-        callback.onSuccess(logFile);
+        Log.e("AndCrash", "upload:" + logFile.getAbsolutePath());
+//        callback.onSuccess(logFile);
+        callback.onFailure(logFile, new Exception("upload failed"));
     }
 }

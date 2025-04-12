@@ -17,7 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class CrashLogger implements Thread.UncaughtExceptionHandler {
-    private static final String TAG = "CrashLogger";
+    private static final String TAG = "AndCrash";
     private Context context;
     private LogUploader uploader;
     private long retentionDays = 7;
@@ -44,6 +44,7 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
 
     public CrashLogger initialize(Context context) {
         this.context = context;
+        uploadPendingLogs();
         return this;
     }
 
@@ -72,11 +73,23 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
 
     @Override
     public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
-        this.executor.execute(() -> saveCrashLog(ex, thread, () -> subsequentProcessing(thread, ex)));
+        Log.d(TAG, "Crash log uncaughtException" + ex.getMessage());
+        this.executor.execute(() -> {
+            try {
+                saveCrashLog(ex, thread, () -> subsequentProcessing(thread, ex));
+            } catch (Exception e) {
+                Log.d(TAG, "Crash log catch: " + ex.getMessage());
+            }
+        });
     }
 
     // 后续处理
     private void subsequentProcessing(Thread thread, Throwable ex) {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         Process.killProcess(Process.myPid());
         System.exit(1);
 
@@ -86,13 +99,17 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
 
     // 保存崩溃日志
     private void saveCrashLog(Throwable ex, Thread thread, Runnable runnable) {
+        Log.d(TAG, "Crash log saved: " + ex.getMessage());
         long startTime = System.currentTimeMillis();
+
+        Log.d(TAG, "Crash log saved: -----");
         byte[] logContent =
                 deviceInfoCollector.buildLogContent(this.context, ex, thread).getBytes();
+        Log.d(TAG, "Crash log saved: " + new String(logContent));
         //可以固定map大小，也可以通过数据计算
         long dataLength = logContent.length;
         File logFile = createLogFile();
-
+        Log.d(TAG, "Crash log saved: " + dataLength);
         try (RandomAccessFile raf =
                      new RandomAccessFile(logFile, "rw");
              FileChannel channel = raf.getChannel()) {

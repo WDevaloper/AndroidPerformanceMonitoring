@@ -23,6 +23,8 @@ public:
     // 设置应用版本信息
     static void SetVersion(const std::string &version);
 
+    static void SetLogDir(const std::string &logDir);
+
     // 线程初始化方法
     static void ThreadInit(JNIEnv *en, jobject callback);
 
@@ -66,9 +68,6 @@ private:
     static std::string m_logDir;         // 日志目录
     static std::string m_version;        // 应用版本
     static std::atomic_bool m_crashHandling; // 原子标志防止递归崩溃
-    static void ChildProcess();
-
-
 };
 
 #endif //ANDROID_CRASH_HANDLER_H
