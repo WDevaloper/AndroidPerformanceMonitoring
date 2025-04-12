@@ -68,6 +68,7 @@ private:
     static std::string m_logDir;         // 日志目录
     static std::string m_version;        // 应用版本
     static std::atomic_bool m_crashHandling; // 原子标志防止递归崩溃
+    static struct sigaction old_sa[NSIG];
 };
 
 #endif //ANDROID_CRASH_HANDLER_H
