@@ -2,8 +2,6 @@ package com.github.crash;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,7 +9,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.github.andcrash.jcrash.CrashLogger;
+import com.github.andcrash.jcrash.AndCrash;
 import com.github.andcrash.nativecrash.NativeCrash;
 
 @SuppressLint("MissingInflatedId")
@@ -39,7 +37,7 @@ public class CrashMainActivity extends AppCompatActivity {
             try {
                 throw new RuntimeException("Test Java Post Crash");
             } catch (RuntimeException e) {
-                CrashLogger.getInstance().postCrash(e);
+                AndCrash.getInstance().postCrash(e);
             }
         });
 

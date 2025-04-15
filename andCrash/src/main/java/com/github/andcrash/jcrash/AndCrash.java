@@ -2,6 +2,7 @@ package com.github.andcrash.jcrash;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Debug;
 import android.os.Process;
 import android.util.Log;
 
@@ -16,7 +17,7 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class CrashLogger implements Thread.UncaughtExceptionHandler {
+public final class AndCrash implements Thread.UncaughtExceptionHandler {
     private static final String TAG = "AndCrash";
     private Context context;
     private LogUploader uploader;
@@ -26,7 +27,7 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
 
-    private CrashLogger() {
+    private AndCrash() {
         this.deviceInfoCollector = new DeviceInfoCollector();
         this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
         setupExceptionHandler();
@@ -35,31 +36,31 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
 
     private static final class InstanceHolder {
         @SuppressLint("StaticFieldLeak")
-        private static final CrashLogger instance = new CrashLogger();
+        private static final AndCrash instance = new AndCrash();
     }
 
-    public static CrashLogger getInstance() {
+    public static AndCrash getInstance() {
         return InstanceHolder.instance;
     }
 
-    public CrashLogger initialize(Context context) {
+    public AndCrash initialize(Context context) {
         this.context = context;
         uploadPendingLogs();
         return this;
     }
 
-    public CrashLogger setRetentionDays(long days) {
+    public AndCrash setRetentionDays(long days) {
         this.retentionDays = days;
         return this;
     }
 
-    public CrashLogger setUploader(LogUploader uploader) {
+    public AndCrash setUploader(LogUploader uploader) {
         this.uploader = uploader;
         return this;
     }
 
-    public CrashLogger newInstance() {
-        return new CrashLogger()
+    public AndCrash newInstance() {
+        return new AndCrash()
                 .setUploader(this.uploader)
                 .setRetentionDays(this.retentionDays)
                 .initialize(context);
@@ -73,14 +74,7 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
 
     @Override
     public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
-        Log.d(TAG, "Crash log uncaughtException" + ex.getMessage());
-        this.executor.execute(() -> {
-            try {
-                saveCrashLog(ex, thread, () -> subsequentProcessing(thread, ex));
-            } catch (Exception e) {
-                Log.d(TAG, "Crash log catch: " + ex.getMessage());
-            }
-        });
+        this.executor.execute(() -> saveCrashLog(ex, thread, () -> subsequentProcessing(thread, ex)));
     }
 
     // 后续处理
@@ -100,8 +94,20 @@ public final class CrashLogger implements Thread.UncaughtExceptionHandler {
     // 保存崩溃日志
     private void saveCrashLog(Throwable ex, Thread thread, Runnable runnable) {
         Log.d(TAG, "Crash log saved: " + ex.getMessage());
-        long startTime = System.currentTimeMillis();
+        if (ex instanceof OutOfMemoryError) {
+            try {
+                // dump hprof 文件到应用的内部存储中
+                File hprofFile = new File(context.getFilesDir(), "dump.hprof");
+                //调用接口获取内存快照。
+                Debug.dumpHprofData(hprofFile.getAbsolutePath());
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to dump hprof file", e);
+                e.printStackTrace();
+            }
+            return;
+        }
 
+        long startTime = System.currentTimeMillis();
         Log.d(TAG, "Crash log saved: -----");
         byte[] logContent =
                 deviceInfoCollector.buildLogContent(this.context, ex, thread).getBytes();

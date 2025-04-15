@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <jni.h>
 #include "jni_env_deleter.h"
+#include "core/include/log_utils.h"
 
 
 struct sigaction CrashHandler::old_sa[NSIG];
@@ -70,7 +71,7 @@ void CrashHandler::SetLogDir(const std::string &logDir) {
 }
 
 void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
-    __android_log_print(ANDROID_LOG_ERROR, "AndCrash", "ThreadInit");
+    log_utils::debug("AndCrash", "ThreadInit");
     env->GetJavaVM(&g_vm);
     // 线程安全 互斥锁
     pthread_mutex_lock(&g_callbackMutex);

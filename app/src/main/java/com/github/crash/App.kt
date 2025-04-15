@@ -2,7 +2,7 @@ package com.github.crash
 
 import android.app.Application
 import android.util.Log
-import com.github.andcrash.jcrash.CrashLogger
+import com.github.andcrash.jcrash.AndCrash
 import com.github.andcrash.nativecrash.NativeCrash
 import com.github.andcrash.nativecrash.NativeCrashCallback
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.File
 class App : Application(), NativeCrashCallback {
     override fun onCreate() {
         super.onCreate()
-        CrashLogger.getInstance()
+        AndCrash.getInstance()
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
             .initialize(this)
