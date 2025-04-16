@@ -2,7 +2,6 @@ package com.github.andcrash.nativecrash;
 
 
 import android.content.Context;
-import android.text.TextUtils;
 
 import java.io.File;
 

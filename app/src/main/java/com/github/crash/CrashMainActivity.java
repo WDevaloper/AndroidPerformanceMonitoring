@@ -44,6 +44,13 @@ public class CrashMainActivity extends AppCompatActivity {
                 AndCrash.getInstance().postCrash(e);
             }
         });
+        findViewById(R.id.btn_java_post_crash_custom_handler).setOnClickListener(v -> {
+            try {
+                CustomException.test();
+            } catch (CustomException e) {
+                AndCrash.getInstance().postCustomCrash(e);
+            }
+        });
 
 
         findViewById(R.id.btn_java_oom_crash).setOnClickListener(v -> {

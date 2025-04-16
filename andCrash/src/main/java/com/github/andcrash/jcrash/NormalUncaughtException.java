@@ -14,14 +14,11 @@ public class NormalUncaughtException implements IUncaughtExceptionHandler {
     private final DeviceInfoCollector deviceInfoCollector = new DeviceInfoCollector();
 
     @Override
-    public boolean uncaughtException(Context context, String logDir, Thread thread, Throwable ex) {
-        if (ex instanceof OutOfMemoryError) return false;
+    public void uncaughtException(Context context, String logDir, Thread thread, Throwable ex) throws IOException {
         File logFile = new File(logDir, "crash_" + System.currentTimeMillis() + ".log");
-
         byte[] logContent =
                 deviceInfoCollector.buildLogContent(context, ex, thread).getBytes();
         long dataLength = logContent.length;//可以固定map大小，也可以通过数据计算
-
         try (RandomAccessFile raf = new RandomAccessFile(logFile, "rw");
              FileChannel channel = raf.getChannel()) {
             MappedByteBuffer buffer =
@@ -32,8 +29,8 @@ public class NormalUncaughtException implements IUncaughtExceptionHandler {
             Log.d(AndCrash.TAG, "Crash log saved: " + logFile.getName());
         } catch (IOException e) {
             Log.e(AndCrash.TAG, "Failed to save crash log", e);
+            throw e;
         }
-        return true;
     }
 
     // 显式清理 MappedByteBuffer 资源
@@ -48,5 +45,16 @@ public class NormalUncaughtException implements IUncaughtExceptionHandler {
         } catch (Exception e) {
             Log.w(AndCrash.TAG, "Failed to clean MappedByteBuffer resources", e);
         }
+    }
+
+
+    @Override
+    public boolean handleCrashAfter(Context context) {
+        return false;
+    }
+
+    @Override
+    public boolean isHandledable(Throwable ex) {
+        return true;
     }
 }

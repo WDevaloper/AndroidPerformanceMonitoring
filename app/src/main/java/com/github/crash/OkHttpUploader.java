@@ -18,7 +18,7 @@ public class OkHttpUploader implements LogUploader {
     @Override
     public void upload(File logFile, UploadCallback callback) {
         Log.e("AndCrash", "upload:" + logFile.getAbsolutePath());
-//        callback.onSuccess(logFile);
-        callback.onFailure(logFile, new Exception("upload failed"));
+        callback.onSuccess(logFile);
+//        callback.onFailure(logFile, new Exception("upload failed"));
     }
 }

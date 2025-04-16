@@ -2,20 +2,19 @@ package com.github.andcrash.jcrash;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Debug;
 import android.os.Process;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.andcrash.nativecrash.NativeCrash;
+import com.github.andcrash.nativecrash.NativeCrashCallback;
+
+import org.jetbrains.annotations.NotNull;
+
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.lang.reflect.Method;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +30,7 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
     private ExecutorService executor = Executors.newSingleThreadExecutor();
     private Thread.UncaughtExceptionHandler defaultHandler;
     private String logDir;
+    private IUncaughtExceptionHandler defaultUncaughtException = new NormalUncaughtException();
     private final List<IUncaughtExceptionHandler> crashHandlers = new CopyOnWriteArrayList<>();
 
     private static final class InstanceHolder {
@@ -38,15 +38,16 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
     }
 
     private AndCrash() {
-        setupExceptionHandler();
+        this.crashHandlers.add(new OOMUncaughtExceptionHandler());
+        this.crashHandlers.add(defaultUncaughtException);
+        this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+        // 设置异常处理器
+        Thread.setDefaultUncaughtExceptionHandler(this);
     }
 
-    // 设置异常处理器
-    private void setupExceptionHandler() {
-        this.crashHandlers.add(new NormalUncaughtException());
-        this.crashHandlers.add(new OOMUncaughtExceptionHandler());
-        this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
-        Thread.setDefaultUncaughtExceptionHandler(this);
+    public AndCrash addCrashHandler(IUncaughtExceptionHandler handler) {
+        this.crashHandlers.add(0, handler);
+        return this;
     }
 
 
@@ -85,7 +86,27 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
 
     @Override
     public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
-        this.executor.execute(() -> saveCrashLog(ex, thread, () -> subsequentProcessing(thread, ex)));
+        this.executor.execute(() -> dispatchHandler(ex, thread));
+    }
+
+
+    // 崩溃日志分发，外部用户可自定义异常处理器，自定义异常处理器返回true，则后续处理器将不会执行
+    private void dispatchHandler(Throwable ex, Thread thread) {
+        IUncaughtExceptionHandler currentHandler = null;
+        for (IUncaughtExceptionHandler handler : crashHandlers) {
+            if (handler.isHandledable(ex)) {
+                try {
+                    currentHandler = handler;
+                    handler.uncaughtException(context, logDir, thread, ex);
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to save crash log", e);
+                }
+                break;
+            }
+        }
+        if (currentHandler == null || !currentHandler.handleCrashAfter(context)) {
+            subsequentProcessing(thread, ex);
+        }
     }
 
     // 后续处理
@@ -102,18 +123,21 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
         defaultHandler.uncaughtException(thread, ex);
     }
 
-    // 保存崩溃日志
-    private void saveCrashLog(Throwable ex, Thread thread, Runnable runnable) {
-        for (IUncaughtExceptionHandler handler : crashHandlers) {
-            boolean uncaughted = handler.uncaughtException(context, logDir, thread, ex);
-            if (uncaughted) break;
-        }
-        runnable.run();
-    }
 
     public void postCrash(Throwable ex) {
-        this.executor.execute(() -> saveCrashLog(ex, Thread.currentThread(),
-                () -> Log.d(TAG, " Post crash log saved")));
+        Thread thread = Thread.currentThread();
+        this.executor.execute(() -> {
+            try {
+                defaultUncaughtException.uncaughtException(context, logDir,thread, ex);
+            } catch (IOException e) {
+                Log.e(TAG, "postCrash: Failed to save crash log", e);
+            }
+        });
+    }
+
+    public void postCustomCrash(Throwable ex) {
+        Thread thread = Thread.currentThread();
+        this.executor.execute(() -> dispatchHandler(ex, thread));
     }
 
 
@@ -173,5 +197,10 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
         }
         this.logDir = logDir.getAbsolutePath();
         return logDir;
+    }
+
+
+    public void initNativeCrash(Context context, String version, NativeCrashCallback callback) {
+        NativeCrash.initCrash(context, version, callback);
     }
 }

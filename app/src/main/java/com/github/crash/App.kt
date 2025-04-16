@@ -14,9 +14,9 @@ class App : Application(), NativeCrashCallback {
         AndCrash.getInstance()
             .setUploader(OkHttpUploader("https://api.example.com/crash_logs"))
             .setRetentionDays(3)
+            .addCrashHandler(CustomUncaughtExceptionHandler())
             .initialize(this)
-
-        NativeCrash.initCrash(this, "1.0.0", this)
+            .initNativeCrash(this, "1.0.00", this)
 
 
         val andAPM = AndAPM()

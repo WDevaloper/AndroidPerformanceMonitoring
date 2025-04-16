@@ -29,6 +29,13 @@
 
 
     <Button
+        android:id="@+id/btn_java_post_crash_custom_handler"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="java_post_crash_custom_handler" />
+
+
+    <Button
         android:id="@+id/btn_java_oom_crash"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
