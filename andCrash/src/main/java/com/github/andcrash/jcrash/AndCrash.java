@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Debug;
 import android.os.Process;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -14,30 +15,40 @@ import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+
+@SuppressLint("StaticFieldLeak")
 public final class AndCrash implements Thread.UncaughtExceptionHandler {
-    private static final String TAG = "AndCrash";
+    public static final String TAG = "AndCrash";
     private Context context;
     private LogUploader uploader;
     private long retentionDays = 7;
-    private final DeviceInfoCollector deviceInfoCollector;
-    private final Thread.UncaughtExceptionHandler defaultHandler;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-
-    private AndCrash() {
-        this.deviceInfoCollector = new DeviceInfoCollector();
-        this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
-        setupExceptionHandler();
-        executor.execute(this::cleanExpiredLogs);
-    }
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Thread.UncaughtExceptionHandler defaultHandler;
+    private String logDir;
+    private final List<IUncaughtExceptionHandler> crashHandlers = new CopyOnWriteArrayList<>();
 
     private static final class InstanceHolder {
-        @SuppressLint("StaticFieldLeak")
         private static final AndCrash instance = new AndCrash();
     }
+
+    private AndCrash() {
+        setupExceptionHandler();
+    }
+
+    // 设置异常处理器
+    private void setupExceptionHandler() {
+        this.crashHandlers.add(new NormalUncaughtException());
+        this.crashHandlers.add(new OOMUncaughtExceptionHandler());
+        this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(this);
+    }
+
 
     public static AndCrash getInstance() {
         return InstanceHolder.instance;
@@ -45,7 +56,9 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
 
     public AndCrash initialize(Context context) {
         this.context = context;
-        uploadPendingLogs();
+        executor.execute(this::uploadPendingLogs);
+        executor.execute(this::cleanExpiredLogs);
+        this.getLogOrCreateDirectory();
         return this;
     }
 
@@ -54,23 +67,21 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
         return this;
     }
 
+    public AndCrash setLogDir(String logDir) {
+        this.logDir = logDir;
+        return this;
+    }
+
+    public AndCrash setExecutor(ExecutorService executor) {
+        this.executor = executor;
+        return this;
+    }
+
     public AndCrash setUploader(LogUploader uploader) {
         this.uploader = uploader;
         return this;
     }
 
-    public AndCrash newInstance() {
-        return new AndCrash()
-                .setUploader(this.uploader)
-                .setRetentionDays(this.retentionDays)
-                .initialize(context);
-    }
-
-
-    // 设置异常处理器
-    private void setupExceptionHandler() {
-        Thread.setDefaultUncaughtExceptionHandler(this);
-    }
 
     @Override
     public void uncaughtException(@NonNull Thread thread, @NonNull Throwable ex) {
@@ -93,41 +104,11 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
 
     // 保存崩溃日志
     private void saveCrashLog(Throwable ex, Thread thread, Runnable runnable) {
-        Log.d(TAG, "Crash log saved: " + ex.getMessage());
-        if (ex instanceof OutOfMemoryError) {
-            try {
-                // dump hprof 文件到应用的内部存储中
-                File hprofFile = new File(getLogDirectory(), "dump.hprof");
-                Debug.dumpHprofData(hprofFile.getAbsolutePath()); //调用接口获取内存快照。
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to dump hprof file", e);
-                e.printStackTrace();
-            } finally {
-                runnable.run();
-            }
-            return;
+        for (IUncaughtExceptionHandler handler : crashHandlers) {
+            boolean uncaughted = handler.uncaughtException(context, logDir, thread, ex);
+            if (uncaughted) break;
         }
-
-        byte[] logContent =
-                deviceInfoCollector.buildLogContent(this.context, ex, thread).getBytes();
-        //可以固定map大小，也可以通过数据计算
-        long dataLength = logContent.length;
-        File logFile = createLogFile();
-        try (RandomAccessFile raf =
-                     new RandomAccessFile(logFile, "rw");
-             FileChannel channel = raf.getChannel()) {
-            MappedByteBuffer buffer =
-                    channel.map(FileChannel.MapMode.READ_WRITE, 0, dataLength);
-            buffer.put(logContent);
-            buffer.force();
-            // 显式清理 MappedByteBuffer 资源
-            mappedByteBufferCleaner(buffer);
-            Log.d(TAG, "Crash log saved: " + logFile.getName());
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to save crash log", e);
-        } finally {
-            runnable.run();
-        }
+        runnable.run();
     }
 
     public void postCrash(Throwable ex) {
@@ -135,23 +116,10 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
                 () -> Log.d(TAG, " Post crash log saved")));
     }
 
-    // 显式清理 MappedByteBuffer 资源
-    private void mappedByteBufferCleaner(MappedByteBuffer buffer) {
-        try {
-            Method cleanerMethod = buffer.getClass().getMethod("cleaner");
-            cleanerMethod.setAccessible(true);
-            Object cleaner = cleanerMethod.invoke(buffer);
-            if (cleaner != null) {
-                cleaner.getClass().getMethod("clean").invoke(cleaner);
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to clean MappedByteBuffer resources", e);
-        }
-    }
 
     // 清理过期日志
     private void cleanExpiredLogs() {
-        File[] logs = getLogDirectory().listFiles();
+        File[] logs = getLogOrCreateDirectory().listFiles();
         if (logs == null) return;
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         for (File log : logs) {
@@ -163,40 +131,27 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
         }
     }
 
-    // 构建崩溃日志
-
-    // 创建崩溃日志文件
-    private File createLogFile() {
-        File logDir = getLogDirectory();
-        String fileName = "crash_" + System.currentTimeMillis() + ".log";
-        return new File(logDir, fileName);
-    }
-
-    private File getLogDirectory() {
-        File externalDir = context.getFilesDir();
-        File logDir = new File(externalDir, "crash_logs");
-        if (!logDir.exists() && !logDir.mkdirs()) {
-            Log.e(TAG, "Failed to create log directory");
-        }
-        return logDir;
-    }
 
     //上传未上传的日志
     public void uploadPendingLogs() {
-        if (uploader == null) return;
-        File[] logs = getLogDirectory().listFiles((dir, name) -> name.endsWith(".log"));
-        if (logs == null || logs.length == 0) return;
-        executor.execute(() -> uploadPendingLogs(logs));
+        if (uploader == null || TextUtils.isEmpty(this.logDir)) return;
+        File[] logs = getLogOrCreateDirectory().listFiles((dir, name) -> name.endsWith(".log"));
+        if (logs != null && logs.length > 0) {
+            uploadPendingLogs(logs);
+            return;
+        }
+        Log.d(TAG, "uploadPendingLogs log file is null");
     }
 
     private void uploadPendingLogs(File[] logs) {
         for (File log : logs) {
+            Log.d(TAG, "Upload pending log: " + log.getName());
             uploader.upload(log, new UploadCallback() {
                 @Override
                 public void onSuccess(File file) {
                     if (file.exists()) {
                         boolean deleteResult = file.delete();
-                        Log.w(TAG, "Delete result: " + deleteResult + " name: " + file.getName());
+                        Log.d(TAG, "Delete result: " + deleteResult + " name: " + file.getName());
                     }
                 }
 
@@ -206,5 +161,17 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
                 }
             });
         }
+    }
+
+
+    private File getLogOrCreateDirectory() {
+        if (this.logDir != null) return new File(this.logDir);
+        File externalDir = context.getFilesDir();
+        File logDir = new File(externalDir, "crash_logs");
+        if (!logDir.exists() && !logDir.mkdirs()) {
+            Log.d(TAG, "Failed to create log directory");
+        }
+        this.logDir = logDir.getAbsolutePath();
+        return logDir;
     }
 }
