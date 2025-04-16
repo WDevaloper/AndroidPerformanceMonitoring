@@ -12,8 +12,12 @@ import androidx.core.view.WindowInsetsCompat;
 import com.github.andcrash.jcrash.AndCrash;
 import com.github.andcrash.nativecrash.NativeCrash;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @SuppressLint("MissingInflatedId")
 public class CrashMainActivity extends AppCompatActivity {
+    private List<byte[]> bytes = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +44,15 @@ public class CrashMainActivity extends AppCompatActivity {
                 AndCrash.getInstance().postCrash(e);
             }
         });
+
+
+        findViewById(R.id.btn_java_oom_crash).setOnClickListener(v -> {
+
+            for (int i = 0; i < 1000000000; i++) {
+                bytes.add(new byte[1024 * 1024]);
+            }
+        });
+
 
     }
 }

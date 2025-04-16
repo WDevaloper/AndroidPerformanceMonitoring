@@ -97,25 +97,22 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
         if (ex instanceof OutOfMemoryError) {
             try {
                 // dump hprof 文件到应用的内部存储中
-                File hprofFile = new File(context.getFilesDir(), "dump.hprof");
-                //调用接口获取内存快照。
-                Debug.dumpHprofData(hprofFile.getAbsolutePath());
+                File hprofFile = new File(getLogDirectory(), "dump.hprof");
+                Debug.dumpHprofData(hprofFile.getAbsolutePath()); //调用接口获取内存快照。
             } catch (IOException e) {
                 Log.e(TAG, "Failed to dump hprof file", e);
                 e.printStackTrace();
+            } finally {
+                runnable.run();
             }
             return;
         }
 
-        long startTime = System.currentTimeMillis();
-        Log.d(TAG, "Crash log saved: -----");
         byte[] logContent =
                 deviceInfoCollector.buildLogContent(this.context, ex, thread).getBytes();
-        Log.d(TAG, "Crash log saved: " + new String(logContent));
         //可以固定map大小，也可以通过数据计算
         long dataLength = logContent.length;
         File logFile = createLogFile();
-        Log.d(TAG, "Crash log saved: " + dataLength);
         try (RandomAccessFile raf =
                      new RandomAccessFile(logFile, "rw");
              FileChannel channel = raf.getChannel()) {
@@ -123,15 +120,12 @@ public final class AndCrash implements Thread.UncaughtExceptionHandler {
                     channel.map(FileChannel.MapMode.READ_WRITE, 0, dataLength);
             buffer.put(logContent);
             buffer.force();
-
             // 显式清理 MappedByteBuffer 资源
             mappedByteBufferCleaner(buffer);
-
             Log.d(TAG, "Crash log saved: " + logFile.getName());
         } catch (IOException e) {
             Log.e(TAG, "Failed to save crash log", e);
         } finally {
-            Log.d(TAG, "Crash log saved in " + (System.currentTimeMillis() - startTime) + "ms");
             runnable.run();
         }
     }
