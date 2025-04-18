@@ -59,4 +59,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.okhttp)
     implementation(project(":andCrash"))
+    implementation(libs.koom.fast.dump)
+
 }

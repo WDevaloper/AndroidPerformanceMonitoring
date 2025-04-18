@@ -2,6 +2,12 @@ package com.github.andcrash.jcrash;
 
 import android.content.Context;
 import android.os.Debug;
+import android.util.Log;
+
+import com.github.andcrash.hprofparser.Hprof;
+import com.github.andcrash.hprofparser.HprofKt;
+import com.kwai.koom.base.DefaultInitTask;
+import com.kwai.koom.fastdump.ForkJvmHeapDumper;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,8 +15,15 @@ import java.io.IOException;
 public class OOMUncaughtExceptionHandler implements IUncaughtExceptionHandler {
     @Override
     public void uncaughtException(Context context, String logFir, Thread thread, Throwable ex) throws IOException {
-        File hprofFile = new File(logFir, "dump.hprof");// dump hprof 文件到应用的内部存储中
-        Debug.dumpHprofData(hprofFile.getAbsolutePath());//调用接口获取内存快照。
+        try {
+            File hprofFile = new File(logFir, "dump_" + System.currentTimeMillis() + ".hprof");
+            Debug.dumpHprofData(hprofFile.getAbsolutePath());
+//            Hprof hprof = HprofKt.hprofParse(hprofFile.getAbsolutePath());
+//            Log.e("AndCrash", "hprof:" + hprof);
+            ForkJvmHeapDumper.getInstance().dump(hprofFile.getAbsolutePath());
+        } catch (IOException exception) {
+            exception.printStackTrace();
+        }
     }
 
     @Override

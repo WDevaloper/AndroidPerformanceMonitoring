@@ -47,8 +47,13 @@ dependencies {
 
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.core.ktx)
+    implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.tailor)
+    implementation(libs.okio)
+    implementation(libs.koom.fast.dump)
+
 }

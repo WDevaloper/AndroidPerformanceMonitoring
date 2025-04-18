@@ -5,6 +5,7 @@ import android.util.Log
 import com.github.andcrash.jcrash.AndCrash
 import com.github.andcrash.nativecrash.NativeCrash
 import com.github.andcrash.nativecrash.NativeCrashCallback
+import com.kwai.koom.base.DefaultInitTask
 import java.io.File
 
 
@@ -24,6 +25,9 @@ class App : Application(), NativeCrashCallback {
         andAPM.start()
         andAPM.stop()
         andAPM.destroy()
+
+
+        DefaultInitTask.init(this)
     }
 
     /**
