@@ -26,6 +26,8 @@
 #include <jni.h>
 #include "jni_env_deleter.h"
 #include "core/include/log_utils.h"
+//mmap
+#include <sys/mman.h>
 
 
 struct sigaction CrashHandler::old_sa[NSIG];
@@ -56,14 +58,22 @@ void CrashHandler::InstallSignalHandlers() {
 
 
     // 备用信号栈
+    setupAlternateStack();
+}
+
+void CrashHandler::setupAlternateStack() {
+    // 备用信号栈
     stack_t ss{};
-    ss.ss_sp = malloc(SIGSTKSZ);
+    //
+    ss.ss_sp = mmap(nullptr, SIGSTKSZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (!ss.ss_sp) {
         return;
     }
     ss.ss_size = SIGSTKSZ;
     ss.ss_flags = 0;
-    sigaltstack(&ss, nullptr);
+    if (ss.ss_sp != MAP_FAILED) {
+        sigaltstack(&ss, nullptr);
+    }
 }
 
 void CrashHandler::SetLogDir(const std::string &logDir) {

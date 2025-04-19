@@ -38,6 +38,8 @@ public:
 
     static int removeDirectory(const std::string &crashLogPath);
 
+    static void setupAlternateStack();
+
     // 删除拷贝构造函数和赋值运算符（单例模式）
     CrashHandler(const CrashHandler &) = delete;
 
