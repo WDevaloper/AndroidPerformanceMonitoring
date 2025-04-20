@@ -1,0 +1,3 @@
+ninja: Entering directory `/Users/mac/AndroidStudioProjects/AndroidPerformanceMonitoring/anrMonitor/.cxx/Debug/4d69t6u2/x86_64'
+[1/2] Building CXX object CMakeFiles/anrmonitor.dir/anrmonitor.cpp.o
+[2/2] Linking CXX shared library /Users/mac/AndroidStudioProjects/AndroidPerformanceMonitoring/anrMonitor/build/intermediates/cxx/Debug/4d69t6u2/obj/x86_64/libanrmonitor.so

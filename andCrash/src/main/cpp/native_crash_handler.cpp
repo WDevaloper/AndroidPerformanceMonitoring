@@ -37,11 +37,16 @@ std::atomic_bool CrashHandler::m_crashHandling(false);
 
 void CrashHandler::Init(JNIEnv *env, const std::string &logDir, jobject callback) {
     m_logDir = logDir;
+    setupAlternateStack();
     InstallSignalHandlers();
-    ThreadInit(env, callback);// 创建event_fd和回调线程
+    ThreadInit(env, callback);
 }
 
+/**
+ * 注册奔溃信号
+ */
 void CrashHandler::InstallSignalHandlers() {
+    log_utils::debug("AndCrash", "InstallSignalHandlers");
     struct sigaction sa{};      // 清空结构体
     sa.sa_sigaction = SignalHandler;  // 指定处理函数
     sigemptyset(&sa.sa_mask);// 清空信号屏蔽字
@@ -55,12 +60,11 @@ void CrashHandler::InstallSignalHandlers() {
         // 注册信号处理
         sigaction(sig, &sa, &CrashHandler::old_sa[sig]);
     }
-
-
-    // 备用信号栈
-    setupAlternateStack();
 }
 
+/**
+ * 备用信号栈
+ */
 void CrashHandler::setupAlternateStack() {
     // 备用信号栈
     stack_t ss{};
@@ -80,6 +84,9 @@ void CrashHandler::SetLogDir(const std::string &logDir) {
     m_logDir = logDir;
 }
 
+/**
+ * 创建event_fd和回调线程
+ */
 void CrashHandler::ThreadInit(JNIEnv *env, jobject callback) {
     log_utils::debug("AndCrash", "ThreadInit");
     env->GetJavaVM(&g_vm);

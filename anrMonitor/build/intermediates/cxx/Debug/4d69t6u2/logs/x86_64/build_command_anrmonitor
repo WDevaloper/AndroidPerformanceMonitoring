@@ -1,0 +1,4 @@
+/Users/mac/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+  -C \
+  /Users/mac/AndroidStudioProjects/AndroidPerformanceMonitoring/anrMonitor/.cxx/Debug/4d69t6u2/x86_64 \
+  anrmonitor
